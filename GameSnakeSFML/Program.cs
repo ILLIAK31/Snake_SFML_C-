@@ -285,14 +285,20 @@
 //        }
 //    }
 //}
+
 using System;
 using System.Collections.Generic;
+using System.IO;
 using SFML.Graphics;
 using SFML.System;
 using SFML.Window;
+using static SFML.Window.Mouse;
 
 class Snake
 {
+    static public int B_Score = 0;
+    static public bool Win_status = false;
+    static public bool Lose_status = false;
     private RenderWindow window;
     private Texture Background_Texture = new Texture(@"C:\Games\1.jpg");
     private Sprite Background_Sprite = new Sprite();
@@ -301,12 +307,15 @@ class Snake
     private int X, Y, Score;
     private List<Vector2i> snake = new List<Vector2i>();
     private Vector2i food = new Vector2i();
+    static Font font = new Font("C:\\Windows\\Fonts\\impact.ttf");
+    private RectangleShape progressBar;
+    private float progressBarWidth;
     public Snake()
     {
         window = new RenderWindow(new VideoMode(800, 600), "Snake");
         Background_Sprite.Texture = Background_Texture;
         Background_Sprite.Scale = new Vector2f((float)window.Size.X / Background_Texture.Size.X, 0.9f);
-        Background_Sprite.Position = new Vector2f(0,60);
+        Background_Sprite.Position = new Vector2f(0, 60);
         Fruit_Sprite.Texture = Fruit_Texture;
         float Fruit_Scale = 0.09f;
         Fruit_Sprite.Scale = new Vector2f(Fruit_Scale, Fruit_Scale);
@@ -314,15 +323,97 @@ class Snake
         Vector2i head = new Vector2i(10, 10);
         snake.Add(head);
         Spawn_Food();
+        progressBar = new RectangleShape(new Vector2f(0, 20));
+        progressBar.FillColor = Color.Red;
+        progressBar.Position = new Vector2f(400, 20);
+        progressBarWidth = 0;
     }
     public void Run()
     {
         Clock clock = new Clock();
         while (window.IsOpen)
         {
+            if (Snake.Win_status)
+            {
+                while (true)
+                {
+                    window.Clear();
+                    Text winText = new Text($"WIN", font, 100)
+                    {
+                        Position = new Vector2f(300, 200)
+                    };
+                    winText.FillColor = Color.Yellow;
+                    window.Draw(winText);
+                    if (Score > B_Score)
+                        B_Score = Score;
+                    Text winText2 = new Text($"Best Score {B_Score}\n Press Enter or Esc", font, 30)
+                    {
+                        Position = new Vector2f(300, 370)
+                    };
+                    winText2.FillColor = Color.White;
+                    window.Draw(winText2);
+                    window.Display();
+                    window.DispatchEvents();
+                    if (Keyboard.IsKeyPressed(Keyboard.Key.Enter))
+                    {
+                        Score = 0;
+                        progressBarWidth = 0;
+                        progressBar.FillColor = Color.Red;
+                        Win_status = false;
+                        snake.Clear();
+                        Vector2i head = new Vector2i(10, 10);
+                        snake.Add(head);
+                        break;
+                    }
+                    else if (Keyboard.IsKeyPressed(Keyboard.Key.Escape))
+                    {
+                        Program.game_status = false;
+                        window.Close();
+                    }
+                }
+            }
             float deltaTime = clock.Restart().AsSeconds();
             Process();
             Update(deltaTime);
+            if (Snake.Lose_status)
+            {
+                while (true)
+                {
+                    window.Clear();
+                    Text winText = new Text($"Lose", font, 100)
+                    {
+                        Position = new Vector2f(300, 200)
+                    };
+                    winText.FillColor = Color.Red;
+                    window.Draw(winText);
+                    if (Score > B_Score)
+                        B_Score = Score;
+                    Text winText2 = new Text($"Best Score {B_Score}\n Press Enter or Esc", font, 30)
+                    {
+                        Position = new Vector2f(300, 370)
+                    };
+                    winText2.FillColor = Color.White;
+                    window.Draw(winText2);
+                    window.Display();
+                    window.DispatchEvents();
+                    if (Keyboard.IsKeyPressed(Keyboard.Key.Enter))
+                    {
+                        Score = 0;
+                        progressBarWidth = 0;
+                        progressBar.FillColor = Color.Red;
+                        Lose_status = false;
+                        snake.Clear();
+                        Vector2i head = new Vector2i(10, 10);
+                        snake.Add(head);
+                        break;
+                    }
+                    else if (Keyboard.IsKeyPressed(Keyboard.Key.Escape))
+                    {
+                        Program.game_status = false;
+                        window.Close();
+                    }
+                }
+            }
             Render();
         }
     }
@@ -332,11 +423,10 @@ class Snake
         do
         {
             food.X = mt_engine.Next(0, 20);
-            food.Y = mt_engine.Next(0, 20);
+            food.Y = mt_engine.Next(5, 20);
         } while (Food_Position(food.X, food.Y));
         Fruit_Sprite.Position = new Vector2f(food.X * 20, food.Y * 20);
     }
-
     private void Process()
     {
         window.DispatchEvents();
@@ -367,42 +457,59 @@ class Snake
         int newY = snake[0].Y + Y;
         if (newX < 0 || newX >= 40 || newY < 3 || newY >= 30 || Check_Collision())
         {
-            Console.WriteLine($"Game Over!\nScore: {Score}");
-            window.Close();
-        }
-
-        Vector2i newHead = new Vector2i(newX, newY);
-        snake.Insert(0, newHead);
-
-        if (newX == food.X && newY == food.Y)
-        {
-            Score += 10;
-            Spawn_Food();
+            Lose_status = true;
         }
         else
         {
-            snake.RemoveAt(snake.Count - 1);
+            Vector2i newHead = new Vector2i(newX, newY);
+            snake.Insert(0, newHead);
+            if (newX == food.X && newY == food.Y)
+            {
+                Score += 10;
+                progressBarWidth += 10;
+                // Check if the score reaches 200
+                if (Score >= 50)
+                {
+                    Score = 50;
+                    progressBarWidth = 200;
+                    progressBar.FillColor = Color.Green;
+                    Win_status = true;
+                }
+                else
+                {
+                    Spawn_Food();
+                }
+            }
+            else
+            {
+                snake.RemoveAt(snake.Count - 1);
+            }
         }
-        Console.WriteLine(newX);
     }
-
     private void Render()
     {
         window.Clear();
         window.Draw(Background_Sprite);
         window.Draw(Fruit_Sprite);
-
         CircleShape Body_Segment = new CircleShape(10)
         {
             FillColor = Color.Red
         };
-
         foreach (var segment in snake)
         {
             Body_Segment.Position = new Vector2f(segment.X * 20, segment.Y * 20);
             window.Draw(Body_Segment);
         }
-
+        progressBar.Size = new Vector2f(progressBarWidth, 20);
+        window.Draw(progressBar);
+        Text scoreText = new Text($"Score: {Score}", font, 20);
+        scoreText.Position = new Vector2f(10, 20);
+        scoreText.CharacterSize = 20;
+        window.Draw(scoreText);
+        Text scoreText2 = new Text($"{Score}/200", font, 20);
+        scoreText2.Position = new Vector2f(300, 20);
+        scoreText2.CharacterSize = 20;
+        window.Draw(scoreText2);
         window.Display();
     }
     private bool Check_Collision()
@@ -414,7 +521,6 @@ class Snake
         }
         return false;
     }
-
     private bool Food_Position(int x, int y)
     {
         foreach (var segment in snake)
@@ -424,7 +530,13 @@ class Snake
         }
         return false;
     }
-    ~Snake(){}
+    private void Restart()
+    {
+        Score = 0;
+        progressBarWidth = 0;
+        Win_status = false;
+        snake.Clear();
+    }
 }
 
 class Program
@@ -435,7 +547,7 @@ class Program
     static Font font = new Font("C:\\Windows\\Fonts\\impact.ttf");
     static Texture backgroundTexture;
     static Sprite backgroundSprite;
-    static bool game_status = false;
+    static public bool game_status = false;
     public static void Start()
     {
         RenderWindow window = new RenderWindow(new VideoMode(800, 600), "Menu");
@@ -445,31 +557,22 @@ class Program
         backgroundSprite = new Sprite(backgroundTexture);
         backgroundSprite.Scale = new Vector2f(0.5f, 0.58f);
         backgroundSprite.Position = new Vector2f(0, 0);
-        Font font = new Font("C:\\Windows\\Fonts\\impact.ttf"); // Replace with the path to your font file
+        Font font = new Font("C:\\Windows\\Fonts\\impact.ttf");
         Text title = new Text("Menu", font, 40);
         title.Position = new Vector2f(300, 50);
-
         Text playOption = new Text("Play", font, 30);
         playOption.Position = new Vector2f(350, 200);
-
         Text exitOption = new Text("Exit", font, 30);
         exitOption.Position = new Vector2f(350, 300);
-
-        int selectedOption = 0; // Index of the currently selected option
+        int selectedOption = 0; 
         while (window.IsOpen)
         {
             window.DispatchEvents();
-
             window.Clear(Color.White);
-
-
             window.Draw(backgroundSprite);
             window.Draw(title);
             window.Draw(playOption);
             window.Draw(exitOption);
-
-
-
             if (selectedOption == 0)
                 playOption.FillColor = Color.Red;
             else
@@ -479,7 +582,6 @@ class Program
                 exitOption.FillColor = Color.Red;
             else
                 exitOption.FillColor = Color.Black;
-
             window.Display();
             if (Keyboard.IsKeyPressed(Keyboard.Key.Up))
             {
@@ -491,13 +593,11 @@ class Program
             }
             else if (Keyboard.IsKeyPressed(Keyboard.Key.Return))
             {
-
                 if (selectedOption == 0)
                 {
                     game_status = true;
                     window.Close();
                     break;
-
                 }
                 else if (selectedOption == 1)
                 {
@@ -517,5 +617,3 @@ class Program
         }
     }
 }
-
-
